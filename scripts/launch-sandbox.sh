@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Launch a ralph sandbox container on a target host, push devbox-lite, and run it.
+# Launch a ralph sandbox container on a target host, push devbox scripts, and run.
 # Usage: ./launch-sandbox.sh [name] [host]
 #
 # Examples:
@@ -11,17 +11,17 @@ NAME="${1:-ralph-sandbox}"
 HOST="${2:-k8s-delta.local}"
 USER="mike"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SANDBOX_DIR="${SCRIPT_DIR}/../sandbox"
 CLOUD_INIT="${SCRIPT_DIR}/../cloud-init/ralph-sandbox.yml"
-DEVBOX_LITE="${SCRIPT_DIR}/../sandbox/devbox-lite.sh"
+DEVBOX_LITE="${SANDBOX_DIR}/devbox-lite.sh"
+DEVBOX_RALPH="${SANDBOX_DIR}/devbox-ralph.sh"
 
-if [[ ! -f "$CLOUD_INIT" ]]; then
-  echo "Error: cloud-init not found: $CLOUD_INIT" >&2
-  exit 1
-fi
-if [[ ! -f "$DEVBOX_LITE" ]]; then
-  echo "Error: devbox-lite.sh not found: $DEVBOX_LITE" >&2
-  exit 1
-fi
+for f in "$CLOUD_INIT" "$DEVBOX_LITE" "$DEVBOX_RALPH"; do
+  if [[ ! -f "$f" ]]; then
+    echo "Error: not found: $f" >&2
+    exit 1
+  fi
+done
 
 echo "==> Launching $NAME on $HOST"
 ssh "$HOST" "incus launch images:ubuntu/24.04/cloud $NAME \
@@ -34,13 +34,17 @@ CLOUDINIT
 echo "==> Waiting for cloud-init to finish..."
 ssh "$HOST" "incus exec $NAME -- cloud-init status --wait"
 
-echo "==> Pushing devbox-lite.sh into container"
-ssh "$HOST" "incus file push - $NAME/home/$USER/devbox-lite.sh" < "$DEVBOX_LITE"
-ssh "$HOST" "incus exec $NAME -- chown $USER:$USER /home/$USER/devbox-lite.sh"
-ssh "$HOST" "incus exec $NAME -- chmod +x /home/$USER/devbox-lite.sh"
+echo "==> Pushing devbox scripts into container"
+ssh "$HOST" "incus exec $NAME -- mkdir -p /home/$USER/sandbox"
+for script in "$DEVBOX_LITE" "$DEVBOX_RALPH"; do
+  BASENAME="$(basename "$script")"
+  ssh "$HOST" "incus file push - $NAME/home/$USER/sandbox/$BASENAME" < "$script"
+done
+ssh "$HOST" "incus exec $NAME -- chown -R $USER:$USER /home/$USER/sandbox"
+ssh "$HOST" "incus exec $NAME -- chmod +x /home/$USER/sandbox/*.sh"
 
-echo "==> Running devbox-lite.sh as $USER"
-ssh "$HOST" "incus exec $NAME -- sudo -iu $USER bash /home/$USER/devbox-lite.sh"
+echo "==> Running devbox-ralph.sh as $USER"
+ssh "$HOST" "incus exec $NAME -- sudo -iu $USER bash /home/$USER/sandbox/devbox-ralph.sh"
 
 echo ""
 echo "==> Done. Shell into it with:"
