@@ -5,25 +5,6 @@
 #cloud-config
 package_update: true
 package_upgrade: true
-packages:
-  - curl
-  - tree
-  - avahi-daemon
-  - openssh-server
-  - wget
-  - git
-  - build-essential
-  - software-properties-common
-  - ca-certificates
-  - gnupg
-  - lsb-release
-  - nano
-  - direnv
-  - python3
-  - python3-pip
-  - python3-venv
-  - tmux
-  - jq
 
 users:
   - name: {{ user }}
@@ -32,6 +13,3 @@ users:
     sudo: ['ALL=(ALL) NOPASSWD:ALL']
     ssh_authorized_keys:
       - {{ ssh_key }}
-
-runcmd:
-  - curl -fsSL https://gist.github.com/mikestankavich/137742bceb0215265103d947d25f9fa9/raw/bootstrap-claude-code-sandbox.sh | bash -s -- {{ user }}
