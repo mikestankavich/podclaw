@@ -141,3 +141,4 @@ This document tracks security assumptions, boundaries, and design decisions for 
 - [ ] Add automated checks (scripts or CI) that lint cloud-init and profiles for disallowed patterns.
 - [ ] Add example OpenClaw reverse-proxy + TLS configuration once the basic Podman path is stable.
 - [ ] Evaluate whether to build OpenClaw images inside Incus or pull prebuilt from a registry.
+- [ ] Replace `dangerouslyAllowHostHeaderOriginFallback` with explicit `gateway.controlUi.allowedOrigins` before any non-lab deployment.

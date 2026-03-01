@@ -109,18 +109,12 @@ runcmd:
     echo "openclaw:100000:65536" >> /etc/subgid
     # Pre-create OpenClaw config so setup-podman.sh skips its own defaults.
     # The Quadlet uses --bind lan (non-loopback) so controlUi needs origin config.
+    # WARNING: dangerouslyAllowHostHeaderOriginFallback is for LAB USE ONLY.
+    # In production, replace with explicit gateway.controlUi.allowedOrigins list.
     mkdir -p /home/openclaw/.openclaw/workspace
     chmod 700 /home/openclaw/.openclaw /home/openclaw/.openclaw/workspace
-    cat > /home/openclaw/.openclaw/openclaw.json <<'OCJSON'
-    {
-      "gateway": {
-        "mode": "local",
-        "controlUi": {
-          "dangerouslyAllowHostHeaderOriginFallback": true
-        }
-      }
-    }
-    OCJSON
+    printf '{\n  "gateway": {\n    "mode": "local",\n    "controlUi": {\n      "dangerouslyAllowHostHeaderOriginFallback": true\n    }\n  }\n}\n' \
+      > /home/openclaw/.openclaw/openclaw.json
     chmod 600 /home/openclaw/.openclaw/openclaw.json
     chown -R openclaw:openclaw /home/openclaw/.openclaw
 
@@ -132,7 +126,6 @@ runcmd:
   # setup-podman.sh with QUADLET starts the service, but belt-and-suspenders.
   - |
     systemctl --machine openclaw@ --user daemon-reload || true
-    systemctl --machine openclaw@ --user enable openclaw.service || true
     systemctl --machine openclaw@ --user restart openclaw.service || true
 
   # Fix any root-owned files in openclaw's home
