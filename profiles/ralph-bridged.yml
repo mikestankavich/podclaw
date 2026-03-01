@@ -1,0 +1,8 @@
+config: {}
+description: "Ralph: bridged NIC, no host mounts"
+devices:
+  eth0:
+    nictype: bridged
+    parent: br0
+    type: nic
+name: ralph-bridged

@@ -1,0 +1,7 @@
+config:
+  security.nesting: "true"
+  security.syscalls.intercept.mknod: "true"
+  security.syscalls.intercept.setxattr: "true"
+description: "Ralph: nested containers allowed (required for Podman builds inside Incus)"
+devices: {}
+name: ralph-nesting

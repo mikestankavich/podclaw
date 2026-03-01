@@ -1,0 +1,7 @@
+*.log
+*.tmp
+*.swp
+cloud-init/*.rendered.yml
+.env
+secrets/
+*.env.local

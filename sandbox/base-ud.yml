@@ -1,0 +1,42 @@
+## template: jinja
+{% set user = user or "mike" %}
+{% set ssh_key = ssh_key or "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIsrQEHKvwPZI8lOBF1j7t9pMUW28pRAZ914BjTnAwW7 mike@kwyk.net" %}
+
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - openssh-server
+  - avahi-daemon
+  - curl
+  - tree
+  - unzip
+  - wget
+  - gnupg
+  - jq
+  - nano
+  - git
+  - build-essential
+  - software-properties-common
+  - ca-certificates
+  - lsb-release
+  - direnv
+  - python3
+  - python3-pip
+  - python3-venv
+  - bluez
+  - libbluetooth-dev
+  - usbutils
+  - postgresql
+  - postgresql-contrib
+  - valkey-server
+  - nfs-kernel-server
+#  - samba
+
+users:
+  - name: {{ user }}
+    groups: sudo
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    ssh_authorized_keys:
+      - {{ ssh_key }}

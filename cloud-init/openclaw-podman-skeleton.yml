@@ -1,0 +1,62 @@
+## template: jinja
+{% set user = user or "mike" %}
+{% set ssh_key = ssh_key or "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIsrQEHKvwPZI8lOBF1j7t9pMUW28pRAZ914BjTnAwW7 mike@kwyk.net" %}
+
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - curl
+  - git
+  - podman
+  - systemd-container
+  - avahi-daemon
+  - openssh-server
+  - nano
+  - tmux
+  - jq
+
+users:
+  # Admin user for troubleshooting
+  - name: {{ user }}
+    groups: sudo
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    ssh_authorized_keys:
+      - {{ ssh_key }}
+
+  # OpenClaw service user: normal user, no sudo
+  # NOTE: Do NOT use system: true -- it inhibits home directory creation.
+  # NOTE: Do NOT pre-create 'openclaw' user if using setup-podman.sh,
+  #       because that script expects to create the user itself.
+  #       This user block is for manual/custom setups only.
+
+runcmd:
+  # --- Option A: Let setup-podman.sh manage everything ---
+  # Clone as root into /opt, let the script create the openclaw user
+  - git clone https://github.com/openclaw/openclaw /opt/openclaw || true
+
+  # Run Podman setup with Quadlet
+  # Requires ralph-nesting profile (security.nesting=true) on the Incus container
+  - cd /opt/openclaw && OPENCLAW_PODMAN_QUADLET=1 ./setup-podman.sh
+
+  # Fix ownership in case script left anything root-owned
+  - chown -R openclaw:openclaw /home/openclaw || true
+
+  # Allow openclaw user services to keep running after logout
+  - loginctl enable-linger openclaw
+
+  # --- Post-boot manual steps ---
+  # 1. SSH in as mike
+  # 2. sudo -iu openclaw bash
+  # 3. systemctl --user daemon-reload
+  # 4. systemctl --user enable --now openclaw.service
+  # 5. systemctl --user status openclaw.service
+  #
+  # Or use the launcher script:
+  #   ~/run-openclaw-podman.sh launch
+  #   ~/run-openclaw-podman.sh launch setup
+  #
+  # Access the gateway:
+  #   http://127.0.0.1:18789/
+  #   Token in ~/.openclaw/.env as OPENCLAW_GATEWAY_TOKEN
