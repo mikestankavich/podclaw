@@ -35,16 +35,16 @@ echo "==> Waiting for cloud-init to finish..."
 ssh "$HOST" "incus exec $NAME -- cloud-init status --wait"
 
 echo "==> Pushing devbox scripts into container"
-ssh "$HOST" "incus exec $NAME -- mkdir -p /home/$USER/sandbox"
+ssh "$HOST" "incus exec $NAME -- mkdir -p /home/$USER/.local/bin"
 for script in "$DEVBOX_LITE" "$DEVBOX_RALPH"; do
   BASENAME="$(basename "$script")"
-  ssh "$HOST" "incus file push - $NAME/home/$USER/sandbox/$BASENAME" < "$script"
+  ssh "$HOST" "incus file push - $NAME/home/$USER/.local/bin/$BASENAME" < "$script"
 done
-ssh "$HOST" "incus exec $NAME -- chown -R $USER:$USER /home/$USER/sandbox"
-ssh "$HOST" "incus exec $NAME -- chmod +x /home/$USER/sandbox/*.sh"
+ssh "$HOST" "incus exec $NAME -- chown -R $USER:$USER /home/$USER/.local"
+ssh "$HOST" "incus exec $NAME -- chmod +x /home/$USER/.local/bin/*.sh"
 
 echo "==> Running devbox-ralph.sh as $USER"
-ssh "$HOST" "incus exec $NAME -- sudo -iu $USER bash /home/$USER/sandbox/devbox-ralph.sh"
+ssh "$HOST" "incus exec $NAME -- sudo -iu $USER bash /home/$USER/.local/bin/devbox-ralph.sh"
 
 echo ""
 echo "==> Done. Shell into it with:"
