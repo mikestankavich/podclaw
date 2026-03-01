@@ -100,6 +100,39 @@ This document tracks security assumptions, boundaries, and design decisions for 
 - The Quadlet service name is `openclaw.service`, not `openclaw-gateway.service`.
 - `sudo -iu` fails for users with `/usr/sbin/nologin` shell; use `sudo -u` instead.
 - Cloning repos as root then running scripts as another user causes permission mismatches.
+- Ubuntu 24.04 sets `kernel.apparmor_restrict_unprivileged_userns=1` which blocks rootless Podman
+  (and any unprivileged user namespace creation) inside Incus containers. Fix: install AppArmor
+  profiles that grant `userns` permission to podman, conmon, crun, slirp4netns, and pasta binaries.
+  Example profile: `abi <abi/4.0>,\ninclude <tunables/global>\nprofile podman /usr/bin/podman flags=(unconfined) { userns, }`
+  Install with `apparmor_parser -r`. Must be done BEFORE running `setup-podman.sh`.
+- Rootless Podman with `--userns keep-id` triggers `storage-chown-by-maps` which recursively
+  chowns the entire image overlay. For the 3GB OpenClaw image this takes 10+ minutes and causes
+  systemd timeouts. Fix: use `fuse-overlayfs` as the storage driver for the openclaw user.
+  Install `fuse-overlayfs` package, then create `~openclaw/.config/containers/storage.conf`:
+  ```
+  [storage]
+  driver = "overlay"
+  [storage.options.overlay]
+  mount_program = "/usr/bin/fuse-overlayfs"
+  ```
+  This handles UID mapping in FUSE and skips the chown entirely.
+- The cloud-init `runcmd` order must be: (1) install fuse-overlayfs + apparmor-utils,
+  (2) create AppArmor profiles and load them, (3) create openclaw storage.conf,
+  (4) run setup-podman.sh. All rootless Podman prerequisites must be in place before the script runs.
+- Pre-creating the openclaw user with `useradd -m -s /usr/sbin/nologin openclaw` in cloud-init
+  runcmd DOES work — setup-podman.sh detects the existing user and skips creation. The earlier
+  note about "pre-creating via cloud-init causes conflicts" was specifically about cloud-init's
+  `users:` directive with `system: true`, not about `useradd` in runcmd.
+- The Quadlet uses `--bind lan` which binds the gateway to 0.0.0.0 inside the container. This
+  requires `gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback=true` in openclaw.json,
+  otherwise the gateway fails with: "non-loopback Control UI requires gateway.controlUi.allowedOrigins".
+  Pre-create openclaw.json before setup-podman.sh runs (the script skips creation if it exists).
+- Quadlet-generated units are transient — `systemctl enable` fails with "Unit is transient or
+  generated". This is expected. The unit starts via the systemd generator, not enable/disable.
+- Full automated cloud-init boot takes ~5 minutes (mostly `podman build` and image load).
+  fuse-overlayfs makes the container start near-instant (no storage-chown-by-maps delay).
+- **WORKING CONFIG**: container `oc-exp-1772387677` on k8s-delta demonstrates the full working
+  setup. Cloud-init boots to a running gateway at http://127.0.0.1:18789/ with no manual steps.
 
 ## Open questions / TODOs
 

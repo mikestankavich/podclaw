@@ -15,6 +15,8 @@ packages:
   - nano
   - tmux
   - jq
+  - fuse-overlayfs
+  - apparmor-utils
 
 users:
   # Admin user for troubleshooting
@@ -25,38 +27,113 @@ users:
     ssh_authorized_keys:
       - {{ ssh_key }}
 
-  # OpenClaw service user: normal user, no sudo
-  # NOTE: Do NOT use system: true -- it inhibits home directory creation.
-  # NOTE: Do NOT pre-create 'openclaw' user if using setup-podman.sh,
-  #       because that script expects to create the user itself.
-  #       This user block is for manual/custom setups only.
+  # NOTE: The openclaw user is created in runcmd below (not here).
+  # setup-podman.sh checks for existing users and skips creation if found.
+  # We pre-create the user so we can configure fuse-overlayfs storage
+  # BEFORE setup-podman.sh runs (avoiding the slow storage-chown-by-maps).
+
+write_files:
+  # AppArmor profiles to allow rootless Podman user namespaces.
+  # Ubuntu 24.04 sets kernel.apparmor_restrict_unprivileged_userns=1
+  # which blocks unprivileged unshare/clone unless the binary has an
+  # AppArmor profile granting the 'userns' permission.
+  - path: /etc/apparmor.d/podman-userns
+    content: |
+      abi <abi/4.0>,
+      include <tunables/global>
+
+      profile podman /usr/bin/podman flags=(unconfined) {
+        userns,
+      }
+
+  - path: /etc/apparmor.d/conmon-userns
+    content: |
+      abi <abi/4.0>,
+      include <tunables/global>
+
+      profile conmon /usr/bin/conmon flags=(unconfined) {
+        userns,
+      }
+
+  - path: /etc/apparmor.d/crun-userns
+    content: |
+      abi <abi/4.0>,
+      include <tunables/global>
+
+      profile crun /usr/bin/crun flags=(unconfined) {
+        userns,
+      }
+
+  - path: /etc/apparmor.d/slirp4netns-userns
+    content: |
+      abi <abi/4.0>,
+      include <tunables/global>
+
+      profile slirp4netns /usr/bin/slirp4netns flags=(unconfined) {
+        userns,
+      }
+
+  - path: /etc/apparmor.d/pasta-userns
+    content: |
+      abi <abi/4.0>,
+      include <tunables/global>
+
+      profile pasta /usr/bin/pasta flags=(unconfined) {
+        userns,
+      }
 
 runcmd:
-  # --- Option A: Let setup-podman.sh manage everything ---
-  # Clone as root into /opt, let the script create the openclaw user
-  - git clone https://github.com/openclaw/openclaw /opt/openclaw || true
+  # --- Step 1: Load AppArmor userns profiles ---
+  - apparmor_parser -r /etc/apparmor.d/podman-userns
+  - apparmor_parser -r /etc/apparmor.d/conmon-userns
+  - apparmor_parser -r /etc/apparmor.d/crun-userns
+  - apparmor_parser -r /etc/apparmor.d/slirp4netns-userns
+  - apparmor_parser -r /etc/apparmor.d/pasta-userns
 
-  # Run Podman setup with Quadlet
-  # Requires ralph-nesting profile (security.nesting=true) on the Incus container
+  # --- Step 2: Pre-create openclaw user with fuse-overlayfs storage ---
+  # Create the user before setup-podman.sh so we can configure the Podman
+  # storage driver. setup-podman.sh detects existing users and skips creation.
+  - useradd -m -s /usr/sbin/nologin openclaw
+  - loginctl enable-linger openclaw
+  - |
+    # Start the user systemd instance so XDG_RUNTIME_DIR exists
+    OPENCLAW_UID=$(id -u openclaw)
+    systemctl start "user@${OPENCLAW_UID}.service" || true
+    # Configure fuse-overlayfs to avoid storage-chown-by-maps with userns keep-id
+    mkdir -p /home/openclaw/.config/containers
+    printf '[storage]\ndriver = "overlay"\n\n[storage.options.overlay]\nmount_program = "/usr/bin/fuse-overlayfs"\n' \
+      > /home/openclaw/.config/containers/storage.conf
+    chown -R openclaw:openclaw /home/openclaw/.config
+    # Add subuid/subgid ranges for rootless Podman
+    echo "openclaw:100000:65536" >> /etc/subuid
+    echo "openclaw:100000:65536" >> /etc/subgid
+    # Pre-create OpenClaw config so setup-podman.sh skips its own defaults.
+    # The Quadlet uses --bind lan (non-loopback) so controlUi needs origin config.
+    mkdir -p /home/openclaw/.openclaw/workspace
+    chmod 700 /home/openclaw/.openclaw /home/openclaw/.openclaw/workspace
+    cat > /home/openclaw/.openclaw/openclaw.json <<'OCJSON'
+    {
+      "gateway": {
+        "mode": "local",
+        "controlUi": {
+          "dangerouslyAllowHostHeaderOriginFallback": true
+        }
+      }
+    }
+    OCJSON
+    chmod 600 /home/openclaw/.openclaw/openclaw.json
+    chown -R openclaw:openclaw /home/openclaw/.openclaw
+
+  # --- Step 3: Clone OpenClaw and run setup ---
+  - git clone https://github.com/openclaw/openclaw /opt/openclaw || true
   - cd /opt/openclaw && OPENCLAW_PODMAN_QUADLET=1 ./setup-podman.sh
 
-  # Fix ownership in case script left anything root-owned
+  # --- Step 4: Ensure service is started ---
+  # setup-podman.sh with QUADLET starts the service, but belt-and-suspenders.
+  - |
+    systemctl --machine openclaw@ --user daemon-reload || true
+    systemctl --machine openclaw@ --user enable openclaw.service || true
+    systemctl --machine openclaw@ --user restart openclaw.service || true
+
+  # Fix any root-owned files in openclaw's home
   - chown -R openclaw:openclaw /home/openclaw || true
-
-  # Allow openclaw user services to keep running after logout
-  - loginctl enable-linger openclaw
-
-  # --- Post-boot manual steps ---
-  # 1. SSH in as mike
-  # 2. sudo -iu openclaw bash
-  # 3. systemctl --user daemon-reload
-  # 4. systemctl --user enable --now openclaw.service
-  # 5. systemctl --user status openclaw.service
-  #
-  # Or use the launcher script:
-  #   ~/run-openclaw-podman.sh launch
-  #   ~/run-openclaw-podman.sh launch setup
-  #
-  # Access the gateway:
-  #   http://127.0.0.1:18789/
-  #   Token in ~/.openclaw/.env as OPENCLAW_GATEWAY_TOKEN
