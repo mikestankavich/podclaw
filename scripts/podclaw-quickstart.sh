@@ -33,7 +33,7 @@ set -euo pipefail
 #   echo 'PODCLAW_SSH_KEY="ssh-ed25519 AAAA..."' >> .env.local
 #   ./podclaw-quickstart.sh my-openclaw
 
-NAME="${1:-oc-exp-$(date +%Y%m%d-%H%M%S)}"
+NAME="${1:-${PODCLAW_CONTAINER_NAME:-oc-exp-$(date +%Y%m%d-%H%M%S)}}"
 REMOTE="${2:-${PODCLAW_REMOTE:-}}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="${SCRIPT_DIR}/.."
