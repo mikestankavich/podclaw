@@ -34,7 +34,7 @@ set -euo pipefail
 #   ./podclaw-quickstart.sh my-openclaw
 
 NAME="${1:-oc-exp-$(date +%Y%m%d-%H%M%S)}"
-REMOTE="${2:-}"
+REMOTE="${2:-${PODCLAW_REMOTE:-}}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="${SCRIPT_DIR}/.."
 CLOUD_INIT="${REPO_ROOT}/cloud-init/openclaw-podman-skeleton.yml"
