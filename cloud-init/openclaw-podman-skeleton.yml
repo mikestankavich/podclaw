@@ -1,5 +1,5 @@
 #cloud-config
-# Variables substituted by launch scripts via envsubst:
+# Variables substituted by launch scripts:
 #   PODCLAW_ADMIN_USER  -- admin username for troubleshooting (required)
 #   PODCLAW_SSH_KEY     -- SSH public key for admin user (required)
 package_update: true

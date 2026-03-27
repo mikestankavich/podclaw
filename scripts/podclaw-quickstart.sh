@@ -90,13 +90,13 @@ echo ""
 
 incus launch images:ubuntu/24.04/cloud "${TARGET}" \
   -p default -p "${PROFILE_BRIDGED}" -p "${PROFILE_NESTING}" \
-  --config=cloud-init.user-data="$(envsubst '${PODCLAW_ADMIN_USER} ${PODCLAW_SSH_KEY}' < "${CLOUD_INIT}")"
+  --config=cloud-init.user-data="$(sed -e "s|\${PODCLAW_ADMIN_USER}|${PODCLAW_ADMIN_USER}|g" -e "s|\${PODCLAW_SSH_KEY}|${PODCLAW_SSH_KEY}|g" "${CLOUD_INIT}")"
 
 echo ""
 
 # --- Step 2: Wait for cloud-init ---
 
-echo "==> Waiting for cloud-init to finish (timeout: ${CLOUD_INIT_TIMEOUT}s)..."
+echo "==> Waiting for cloud-init to finish..."
 echo "    You can tail logs in another terminal with:"
 echo "    incus exec ${EXEC_TARGET} -- tail -f /var/log/cloud-init-output.log"
 echo ""

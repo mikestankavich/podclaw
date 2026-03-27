@@ -82,7 +82,7 @@ export PODCLAW_SSH_KEY="ssh-ed25519 AAAA..."
 # 1. Launch the Incus guest
 incus launch images:ubuntu/24.04/cloud my-openclaw \
   -p default -p bridged -p docker \
-  --config=cloud-init.user-data="$(envsubst '${PODCLAW_ADMIN_USER} ${PODCLAW_SSH_KEY}' < cloud-init/openclaw-podman-skeleton.yml)"
+  --config=cloud-init.user-data="$(sed -e "s|\${PODCLAW_ADMIN_USER}|${PODCLAW_ADMIN_USER}|g" -e "s|\${PODCLAW_SSH_KEY}|${PODCLAW_SSH_KEY}|g" cloud-init/openclaw-podman-skeleton.yml)"
 
 # 2. Wait for cloud-init
 incus exec my-openclaw -- cloud-init status --wait
