@@ -39,7 +39,7 @@ The OpenClaw gateway runs as a single Node.js process inside a rootless Podman c
   | `bridged` | Bridged NIC on a host bridge (e.g. `br0`) | `incus profile create bridged` then add a `nic` device with `nictype: bridged` and `parent: br0` |
   | `docker` | `security.nesting=true` + syscall intercepts for rootless Podman | `incus profile create docker` then set `security.nesting=true`, `security.syscalls.intercept.mknod=true`, `security.syscalls.intercept.setxattr=true` |
 
-  Reference configs are in [`profiles/`](profiles/). The launch script expects profile names `bridged` and `docker` on your Incus host -- adapt the names to match your environment, or import the reference configs directly.
+  Reference configs are in [`profiles/`](profiles/). The launch script defaults to profile names `bridged` and `docker` -- override with `PODCLAW_PROFILE_BRIDGED` and `PODCLAW_PROFILE_NESTING` env vars to match your environment.
 
 - **Ubuntu 24.04 LTS** recommended for the Incus guest image
 - `git`, `curl`, and `incus` CLI on the machine you're launching from

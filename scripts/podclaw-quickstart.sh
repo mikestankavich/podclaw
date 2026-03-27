@@ -8,25 +8,30 @@ set -euo pipefail
 #
 # Assumptions:
 #   - Running on an Incus host (or a machine with `incus` configured for a remote)
-#   - Incus has profiles named "default", "bridged", and "docker" available
-#   - "bridged" provides a bridged NIC; "docker" provides security.nesting=true
+#   - Incus has a bridged NIC profile and a nesting profile available
+#     (see profiles/ in the repo for reference configs)
 #   - OpenClaw API keys are configured post-launch via the Control UI
 #
 # Required environment variables (set in shell or .env.local):
-#   PODCLAW_ADMIN_USER  -- admin username for SSH/troubleshooting
-#   PODCLAW_SSH_KEY     -- SSH public key for that user
+#   PODCLAW_ADMIN_USER       -- admin username for SSH/troubleshooting
+#   PODCLAW_SSH_KEY          -- SSH public key for that user
+#
+# Optional environment variables:
+#   PODCLAW_PROFILE_BRIDGED  -- Incus bridged NIC profile name (default: bridged)
+#   PODCLAW_PROFILE_NESTING  -- Incus nesting profile name (default: docker)
 #
 # Usage:
 #   ./podclaw-quickstart.sh [name] [remote]
 #
 # Examples:
-#   export PODCLAW_ADMIN_USER=mike PODCLAW_SSH_KEY="ssh-ed25519 AAAA..."
-#   ./podclaw-quickstart.sh my-openclaw k8s-delta
+#   export PODCLAW_ADMIN_USER=yourname PODCLAW_SSH_KEY="ssh-ed25519 AAAA..."
+#   ./podclaw-quickstart.sh my-openclaw
+#   ./podclaw-quickstart.sh my-openclaw your-remote
 #
 #   # Or use .env.local in the repo root:
-#   echo 'PODCLAW_ADMIN_USER=mike' >> .env.local
+#   echo 'PODCLAW_ADMIN_USER=yourname' >> .env.local
 #   echo 'PODCLAW_SSH_KEY="ssh-ed25519 AAAA..."' >> .env.local
-#   ./podclaw-quickstart.sh my-openclaw k8s-delta
+#   ./podclaw-quickstart.sh my-openclaw
 
 NAME="${1:-oc-exp-$(date +%Y%m%d-%H%M%S)}"
 REMOTE="${2:-}"
@@ -66,6 +71,9 @@ fi
 
 export PODCLAW_ADMIN_USER PODCLAW_SSH_KEY
 
+PROFILE_BRIDGED="${PODCLAW_PROFILE_BRIDGED:-bridged}"
+PROFILE_NESTING="${PODCLAW_PROFILE_NESTING:-docker}"
+
 TARGET="${NAME}"
 EXEC_TARGET="${NAME}"
 if [[ -n "$REMOTE" ]]; then
@@ -76,12 +84,12 @@ fi
 # --- Step 1: Launch ---
 
 echo "==> Launching Incus container: ${TARGET}"
-echo "    Profiles: default, bridged, docker"
+echo "    Profiles: default, ${PROFILE_BRIDGED}, ${PROFILE_NESTING}"
 echo "    Cloud-init: ${CLOUD_INIT}"
 echo ""
 
 incus launch images:ubuntu/24.04/cloud "${TARGET}" \
-  -p default -p bridged -p docker \
+  -p default -p "${PROFILE_BRIDGED}" -p "${PROFILE_NESTING}" \
   --config=cloud-init.user-data="$(envsubst '${PODCLAW_ADMIN_USER} ${PODCLAW_SSH_KEY}' < "${CLOUD_INIT}")"
 
 echo ""
