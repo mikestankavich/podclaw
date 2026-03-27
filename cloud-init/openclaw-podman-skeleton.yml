@@ -1,8 +1,7 @@
-## template: jinja
-{% set user = user or "mike" %}
-{% set ssh_key = ssh_key or "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIsrQEHKvwPZI8lOBF1j7t9pMUW28pRAZ914BjTnAwW7 mike@kwyk.net" %}
-
 #cloud-config
+# Variables substituted by launch scripts via envsubst:
+#   PODCLAW_ADMIN_USER  -- admin username for troubleshooting (required)
+#   PODCLAW_SSH_KEY     -- SSH public key for admin user (required)
 package_update: true
 package_upgrade: true
 packages:
@@ -20,12 +19,12 @@ packages:
 
 users:
   # Admin user for troubleshooting
-  - name: {{ user }}
+  - name: ${PODCLAW_ADMIN_USER}
     groups: sudo
     shell: /bin/bash
     sudo: ['ALL=(ALL) NOPASSWD:ALL']
     ssh_authorized_keys:
-      - {{ ssh_key }}
+      - ${PODCLAW_SSH_KEY}
 
   # NOTE: The openclaw user is created in runcmd below (not here).
   # setup-podman.sh checks for existing users and skips creation if found.
@@ -118,15 +117,35 @@ runcmd:
     chmod 600 /home/openclaw/.openclaw/openclaw.json
     chown -R openclaw:openclaw /home/openclaw/.openclaw
 
-  # --- Step 3: Clone OpenClaw and run setup ---
-  - git clone https://github.com/openclaw/openclaw /opt/openclaw || true
-  - cd /opt/openclaw && OPENCLAW_PODMAN_QUADLET=1 ./setup-podman.sh
+  # --- Step 3: Generate gateway auth token ---
+  # Non-loopback binds (--bind lan) should use token auth. setup-podman.sh
+  # reads this .env file if it exists; otherwise the gateway runs open.
+  - |
+    GATEWAY_TOKEN=$(openssl rand -hex 32)
+    mkdir -p /home/openclaw/.openclaw
+    echo "OPENCLAW_GATEWAY_TOKEN=${GATEWAY_TOKEN}" > /home/openclaw/.openclaw/.env
+    chmod 600 /home/openclaw/.openclaw/.env
+    chown openclaw:openclaw /home/openclaw/.openclaw/.env
 
-  # --- Step 4: Ensure service is started ---
+  # --- Step 4: Clone OpenClaw and run setup ---
+  # scripts/podman/setup.sh MUST run as the openclaw user (refuses root).
+  # Set OPENCLAW_IMAGE to pull the pre-built image from GHCR instead of
+  # building from source (~30s pull vs ~5min build).
+  - git clone https://github.com/openclaw/openclaw /opt/openclaw || true
+  - chown -R openclaw:openclaw /opt/openclaw
+  - |
+    sudo -u openclaw bash -c 'cd /opt/openclaw && OPENCLAW_IMAGE=ghcr.io/openclaw/openclaw:main-slim OPENCLAW_PODMAN_QUADLET=1 ./scripts/podman/setup.sh'
+
+  # --- Step 5: Ensure service is started ---
   # setup-podman.sh with QUADLET starts the service, but belt-and-suspenders.
   - |
     systemctl --machine openclaw@ --user daemon-reload || true
     systemctl --machine openclaw@ --user restart openclaw.service || true
+
+  # --- Step 6: Post-setup validation ---
+  - |
+    sudo -u openclaw podman exec openclaw openclaw doctor --fix 2>&1 || true
+    sudo -u openclaw podman exec openclaw openclaw security audit 2>&1 || true
 
   # Fix any root-owned files in openclaw's home
   - chown -R openclaw:openclaw /home/openclaw || true

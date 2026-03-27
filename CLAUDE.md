@@ -4,9 +4,9 @@ This file provides guidance to Claude Code when working in the podclaw repositor
 
 ## Project Overview
 
-Podclaw is a homelab harness for running OpenClaw (AI agent gateway) on rootless Podman
-inside Incus containers on a sacrificial host (k8s-delta). The repo contains cloud-init
-templates, Incus profiles, helper scripts, and mission prompts -- not application code.
+Podclaw is a recipe for running OpenClaw (AI agent gateway) on rootless Podman inside
+Incus containers. The repo contains cloud-init templates, Incus profiles, and helper
+scripts -- not application code.
 
 See NOTES.md for the full threat model and lessons learned.
 
@@ -27,8 +27,6 @@ See NOTES.md for the full threat model and lessons learned.
 
 ## Security Boundaries
 
-These rules apply to ALL sessions -- human-driven or autonomous (Ralph).
-
 ### You MAY:
 - Edit files in this repo, commit, push branches, create PRs
 - Run `incus launch`, `incus exec`, `incus delete` targeting k8s-delta ONLY
@@ -45,26 +43,16 @@ These rules apply to ALL sessions -- human-driven or autonomous (Ralph).
 - Commit secrets, tokens, or keys to git (check .gitignore)
 - Print tokens or secrets in output
 
-## Available Tooling
-
-Inside ralph-sandbox on k8s-delta:
-- `incus` -- configured with k8s-delta as remote
-- `docker` -- available for image builds
-- `gh` -- GitHub CLI, authenticated with fine-grained PAT (scoped to mikestankavich/podclaw)
-- `podman` -- available inside experiment containers (not in sandbox itself)
-
 ## Key File Locations
 
 | Path | Purpose |
 |------|---------|
-| `cloud-init/openclaw-podman-skeleton.yml` | Template for experiment containers |
-| `cloud-init/ralph-sandbox.yml` | Sandbox container cloud-init |
-| `profiles/ralph-bridged.yml` | Bridged NIC profile |
-| `profiles/ralph-nesting.yml` | security.nesting for Podman builds |
+| `cloud-init/openclaw-podman-skeleton.yml` | Cloud-init template for OpenClaw containers |
+| `profiles/ralph-bridged.yml` | Reference: bridged NIC profile |
+| `profiles/ralph-nesting.yml` | Reference: security.nesting for rootless Podman |
+| `scripts/podclaw-quickstart.sh` | One-command launch, wait, and verify |
 | `scripts/launch-experiment.sh` | Launch experiment containers |
 | `scripts/cleanup-experiments.sh` | Delete experiment containers by prefix |
-| `scripts/launch-sandbox.sh` | Launch and bootstrap ralph-sandbox |
-| `missions/` | Ralph-loop mission prompts |
 | `NOTES.md` | Threat model, boundaries, lessons learned |
 
 ## Environment

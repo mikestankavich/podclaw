@@ -2,6 +2,11 @@
 set -euo pipefail
 
 # Launch an OpenClaw experiment container on k8s-delta (or localhost)
+#
+# Required environment variables (set in shell or .env.local):
+#   PODCLAW_ADMIN_USER  -- admin username for SSH/troubleshooting
+#   PODCLAW_SSH_KEY     -- SSH public key for that user
+#
 # Usage: ./launch-experiment.sh [name] [remote]
 #
 # Examples:
@@ -11,12 +16,36 @@ set -euo pipefail
 
 NAME="${1:-oc-exp-$(date +%Y%m%d-%H%M%S)}"
 REMOTE="${2:-}"
-CLOUD_INIT="$(dirname "$0")/../cloud-init/openclaw-podman-skeleton.yml"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="${SCRIPT_DIR}/.."
+CLOUD_INIT="${REPO_ROOT}/cloud-init/openclaw-podman-skeleton.yml"
 
 if [[ ! -f "$CLOUD_INIT" ]]; then
   echo "Error: cloud-init file not found: $CLOUD_INIT" >&2
   exit 1
 fi
+
+# Load .env.local from repo root if it exists.
+if [[ -f "${REPO_ROOT}/.env.local" ]]; then
+  # shellcheck source=/dev/null
+  set -a
+  source "${REPO_ROOT}/.env.local"
+  set +a
+fi
+
+# Validate required variables.
+if [[ -z "${PODCLAW_ADMIN_USER:-}" ]]; then
+  echo "Error: PODCLAW_ADMIN_USER is not set." >&2
+  echo "Set it in your shell or in .env.local" >&2
+  exit 1
+fi
+if [[ -z "${PODCLAW_SSH_KEY:-}" ]]; then
+  echo "Error: PODCLAW_SSH_KEY is not set." >&2
+  echo "Set it in your shell or in .env.local" >&2
+  exit 1
+fi
+
+export PODCLAW_ADMIN_USER PODCLAW_SSH_KEY
 
 TARGET="${NAME}"
 if [[ -n "$REMOTE" ]]; then
@@ -30,11 +59,11 @@ echo ""
 
 incus launch images:ubuntu/24.04/cloud "$TARGET" \
   -p default -p bridged -p docker \
-  --config=cloud-init.user-data="$(cat "$CLOUD_INIT")"
+  --config=cloud-init.user-data="$(envsubst '${PODCLAW_ADMIN_USER} ${PODCLAW_SSH_KEY}' < "$CLOUD_INIT")"
 
 echo ""
 echo "Container launched. Monitor cloud-init with:"
 echo "  incus exec ${TARGET} -- tail -f /var/log/cloud-init-output.log"
 echo ""
 echo "Shell into it with:"
-echo "  incus exec ${TARGET} -- sudo -iu mike bash"
+echo "  incus exec ${TARGET} -- sudo -iu ${PODCLAW_ADMIN_USER} bash"
