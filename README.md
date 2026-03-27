@@ -6,7 +6,7 @@ Run **OpenClaw** in a rootless Podman container inside an **Incus** guest -- ful
 
 ```
 ┌─────────────────────────────────────────────┐
-│  Incus host  (k8s-delta, sacrificial)       │
+│  Incus host  (sacrificial / lab)            │
 │                                             │
 │  ┌────────────────────────────────────────┐ │
 │  │  Incus guest  (Ubuntu 24.04)           │ │
@@ -39,7 +39,7 @@ The OpenClaw gateway runs as a single Node.js process inside a rootless Podman c
   | `bridged` | Bridged NIC on a host bridge (e.g. `br0`) | `incus profile create bridged` then add a `nic` device with `nictype: bridged` and `parent: br0` |
   | `docker` | `security.nesting=true` + syscall intercepts for rootless Podman | `incus profile create docker` then set `security.nesting=true`, `security.syscalls.intercept.mknod=true`, `security.syscalls.intercept.setxattr=true` |
 
-  Reference configs are in [`profiles/`](profiles/) (named `openclaw-bridged.yml` and `openclaw-nesting.yml`). The launch scripts expect the profile names `bridged` and `docker` on your Incus host.
+  Reference configs are in [`profiles/`](profiles/). The launch script expects profile names `bridged` and `docker` on your Incus host -- adapt the names to match your environment, or import the reference configs directly.
 
 - **Ubuntu 24.04 LTS** recommended for the Incus guest image
 - `git`, `curl`, and `incus` CLI on the machine you're launching from
@@ -55,12 +55,16 @@ cd podclaw
 export PODCLAW_ADMIN_USER="yourname"
 export PODCLAW_SSH_KEY="ssh-ed25519 AAAA..."
 
-./scripts/podclaw-quickstart.sh my-openclaw k8s-delta
+# Local Incus host:
+./scripts/podclaw-quickstart.sh my-openclaw
+
+# Or target a remote Incus host:
+./scripts/podclaw-quickstart.sh my-openclaw your-remote
 ```
 
 This will:
 1. Launch an Ubuntu 24.04 Incus guest with the right profiles
-2. Run cloud-init to install Podman, configure AppArmor for rootless userns, and build the OpenClaw container image
+2. Run cloud-init to install Podman, configure AppArmor for rootless userns, and pull the OpenClaw container image
 3. Start the OpenClaw gateway as a Quadlet systemd user service
 4. Wait for everything to come up and print access URLs
 
@@ -122,19 +126,13 @@ That's it. No cleanup, no leftover state on the host.
 
 ## Repository layout
 
-### OpenClaw deployment (the main event)
-
 | Path | Purpose |
 |------|---------|
-| `cloud-init/openclaw-podman-skeleton.yml` | Cloud-init template for OpenClaw experiment containers |
+| `cloud-init/openclaw-podman-skeleton.yml` | Cloud-init template for OpenClaw containers |
 | `profiles/openclaw-bridged.yml` | Reference Incus profile: bridged NIC (no host mounts) |
 | `profiles/openclaw-nesting.yml` | Reference Incus profile: nesting for rootless Podman |
 | `scripts/podclaw-quickstart.sh` | One-command launch, wait, and verify |
 | `NOTES.md` | Threat model, security boundaries, lessons learned |
-
-### Ralph autonomous agent (how this was built)
-
-This repo was built by [Ralph](https://github.com/mikestankavich/ralph-sandbox) -- an autonomous Claude Code agent iterating on the deployment inside a sandboxed Incus container. The Ralph tooling lives in a separate repo.
 
 ## Design principles
 
@@ -148,8 +146,8 @@ This repo was built by [Ralph](https://github.com/mikestankavich/ralph-sandbox) 
 Things we learned the hard way (full details in [NOTES.md](NOTES.md)):
 
 - **AppArmor userns profiles** are required on Ubuntu 24.04 -- the kernel blocks unprivileged user namespaces by default. We install profiles for `podman`, `conmon`, `crun`, `slirp4netns`, and `pasta`.
-- **fuse-overlayfs** is critical -- without it, rootless Podman with `--userns keep-id` triggers a 10+ minute recursive chown on the 3GB OpenClaw image.
-- **Cloud-init ordering matters** -- AppArmor profiles and storage config must be in place before `setup-podman.sh` runs.
+- **fuse-overlayfs** is critical -- without it, rootless Podman with `--userns keep-id` triggers a 10+ minute recursive chown on large container images.
+- **Cloud-init ordering matters** -- AppArmor profiles and storage config must be in place before the OpenClaw setup script runs.
 - **Quadlet units are transient** -- `systemctl enable` fails on them (expected). They start via the systemd generator.
 
 ## Security
@@ -160,9 +158,4 @@ See [NOTES.md](NOTES.md) for the full threat model. Key points:
 - No host path mounts from Incus guests
 - Gateway auth token generated automatically at boot
 - OpenClaw gateways bind to loopback by default; LAN binding requires explicit config
-- The sacrificial host (k8s-delta) is assumed to be expendable
-
-## Hardware
-
-- **k8s-delta** (sacrificial lab host): GMKtec M6, 64 GB RAM, 2 TB NVMe, Ubuntu 24.04 LTS
-- **k8s-alpha** (real homelab, out of scope): Minisforum HX370, 96 GB RAM, 2 TB NVMe
+- The Incus host is assumed to be expendable (sacrificial lab machine)
