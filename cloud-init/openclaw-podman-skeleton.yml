@@ -134,7 +134,7 @@ runcmd:
   - git clone https://github.com/openclaw/openclaw /opt/openclaw || true
   - chown -R openclaw:openclaw /opt/openclaw
   - |
-    sudo -u openclaw bash -c 'cd /opt/openclaw && OPENCLAW_IMAGE=ghcr.io/openclaw/openclaw:main-slim OPENCLAW_PODMAN_QUADLET=1 ./scripts/podman/setup.sh'
+    sudo -u openclaw bash -c 'cd /opt/openclaw && OPENCLAW_IMAGE=ghcr.io/openclaw/openclaw:main-slim OPENCLAW_PODMAN_QUADLET=1 OPENCLAW_PODMAN_PUBLISH_HOST=0.0.0.0 ./scripts/podman/setup.sh'
 
   # --- Step 5: Ensure service is started ---
   # setup-podman.sh with QUADLET starts the service, but belt-and-suspenders.
