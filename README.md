@@ -1,12 +1,12 @@
 # Podclaw
 
-Run **OpenClaw** in a rootless Podman container inside an **Incus** guest -- fully automated via cloud-init, with blast-radius isolation and easy teardown. Built for homelab users who want disposable AI agent sandboxes without risking real infrastructure.
+Run **OpenClaw** in a rootless Podman container inside an **Incus** guest -- fully automated via cloud-init. One command gives you an isolated, disposable OpenClaw instance with no impact on your host.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────┐
-│  Incus host  (sacrificial / lab)            │
+│  Incus host                                 │
 │                                             │
 │  ┌────────────────────────────────────────┐ │
 │  │  Incus guest  (Ubuntu 24.04)           │ │
@@ -115,9 +115,9 @@ That's it. No cleanup, no leftover state on the host.
 
 ## Who this is for
 
-- **Homelab / Incus users** who want isolated, disposable OpenClaw sandboxes
+- **Homelab / Incus users** who want a clean, containerized OpenClaw setup
 - **Infra engineers** exploring rootless Podman inside system containers
-- **AI agent experimenters** who want blast-radius isolation for agent workloads
+- **AI agent experimenters** who want isolated OpenClaw instances they can spin up and tear down
 
 ### Non-goals
 
@@ -136,10 +136,10 @@ That's it. No cleanup, no leftover state on the host.
 
 ## Design principles
 
-- **Sacrificial host only** -- all experiments run on a dedicated box with no important data
-- **Rootless by default** -- OpenClaw runs under a non-privileged user in rootless Podman, with Incus as the outer boundary
-- **Agent-friendly, human-auditable** -- cloud-init, profiles, and scripts are small, idempotent, and version-controlled
-- **Easy nuke-and-rebuild** -- delete the container and start fresh; rebuild the host if needed
+- **Container isolation** -- OpenClaw runs inside an Incus guest with no host path mounts or privileged mode
+- **Rootless by default** -- OpenClaw runs under a non-privileged user in rootless Podman
+- **Reproducible** -- cloud-init, profiles, and scripts are small, idempotent, and version-controlled
+- **Disposable** -- delete the container and start fresh; no cleanup needed on the host
 
 ## Key implementation details
 
@@ -152,10 +152,9 @@ Things we learned the hard way (full details in [NOTES.md](NOTES.md)):
 
 ## Security
 
-See [NOTES.md](NOTES.md) for the full threat model. Key points:
+See [NOTES.md](NOTES.md) for details.
 
 - No `security.privileged=true` on any container
 - No host path mounts from Incus guests
 - Gateway auth token generated automatically at boot
 - OpenClaw gateways bind to loopback by default; LAN binding requires explicit config
-- The Incus host is assumed to be expendable (sacrificial lab machine)
