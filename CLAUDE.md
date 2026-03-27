@@ -29,7 +29,7 @@ See NOTES.md for the full threat model and lessons learned.
 
 ### You MAY:
 - Edit files in this repo, commit, push branches, create PRs
-- Run `incus launch`, `incus exec`, `incus delete` targeting k8s-delta ONLY
+- Run `incus launch`, `incus exec`, `incus delete` targeting configured remotes
 - Use the predefined profiles in `profiles/` when launching containers
 - Install packages inside Incus containers you create
 - Run rootless Podman or Docker inside experiment containers
@@ -39,7 +39,6 @@ See NOTES.md for the full threat model and lessons learned.
 - Add host path mounts (`disk` devices) to any container
 - Set `security.privileged=true` without explicit human approval
 - Generate or install SSH keys for remote access to other hosts
-- Touch k8s-alpha or any host other than k8s-delta
 - Commit secrets, tokens, or keys to git (check .gitignore)
 - Print tokens or secrets in output
 
