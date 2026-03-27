@@ -51,8 +51,6 @@ See NOTES.md for the full threat model and lessons learned.
 | `profiles/openclaw-bridged.yml` | Reference: bridged NIC profile |
 | `profiles/openclaw-nesting.yml` | Reference: security.nesting for rootless Podman |
 | `scripts/podclaw-quickstart.sh` | One-command launch, wait, and verify |
-| `scripts/launch-experiment.sh` | Launch experiment containers |
-| `scripts/cleanup-experiments.sh` | Delete experiment containers by prefix |
 | `NOTES.md` | Threat model, boundaries, lessons learned |
 
 ## Environment

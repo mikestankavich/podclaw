@@ -130,8 +130,6 @@ That's it. No cleanup, no leftover state on the host.
 | `profiles/openclaw-bridged.yml` | Reference Incus profile: bridged NIC (no host mounts) |
 | `profiles/openclaw-nesting.yml` | Reference Incus profile: nesting for rootless Podman |
 | `scripts/podclaw-quickstart.sh` | One-command launch, wait, and verify |
-| `scripts/launch-experiment.sh` | Launch an experiment container (no wait/verify) |
-| `scripts/cleanup-experiments.sh` | Delete experiment containers by prefix |
 | `NOTES.md` | Threat model, security boundaries, lessons learned |
 
 ### Ralph autonomous agent (how this was built)
