@@ -97,8 +97,17 @@ echo ""
 # --- Step 2: Wait for cloud-init ---
 
 echo "==> Waiting for cloud-init to finish..."
-echo "    You can tail logs in another terminal with:"
-echo "    incus exec ${EXEC_TARGET} -- tail -f /var/log/cloud-init-output.log"
+
+TAIL_PID=""
+if [[ -n "${PODCLAW_VERBOSE:-}" ]]; then
+  # Tail cloud-init log in background so the user can watch progress.
+  # Small delay to let cloud-init create the log file.
+  (sleep 3 && incus exec "${EXEC_TARGET}" -- tail -f /var/log/cloud-init-output.log 2>/dev/null) &
+  TAIL_PID=$!
+else
+  echo "    You can tail logs in another terminal with:"
+  echo "    incus exec ${EXEC_TARGET} -- tail -f /var/log/cloud-init-output.log"
+fi
 echo ""
 
 if ! incus exec "${EXEC_TARGET}" -- cloud-init status --wait --long \
@@ -106,6 +115,13 @@ if ! incus exec "${EXEC_TARGET}" -- cloud-init status --wait --long \
   echo ""
   echo "WARNING: cloud-init may have finished with errors." >&2
   echo "Check: incus exec ${EXEC_TARGET} -- tail -50 /var/log/cloud-init-output.log" >&2
+fi
+
+# Kill the background log tail if we started one.
+if [[ -n "${TAIL_PID}" ]]; then
+  kill "${TAIL_PID}" 2>/dev/null || true
+  wait "${TAIL_PID}" 2>/dev/null || true
+  echo ""
 fi
 
 echo ""
