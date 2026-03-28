@@ -136,13 +136,23 @@ runcmd:
   - |
     sudo -u openclaw bash -c 'cd /opt/openclaw && OPENCLAW_IMAGE=ghcr.io/openclaw/openclaw:main-slim OPENCLAW_PODMAN_QUADLET=1 OPENCLAW_PODMAN_PUBLISH_HOST=0.0.0.0 ./scripts/podman/setup.sh'
 
-  # --- Step 5: Ensure service is started ---
-  # setup-podman.sh with QUADLET starts the service, but belt-and-suspenders.
+  # --- Step 5: Patch Quadlet to publish on all interfaces ---
+  # setup.sh hardcodes PublishPort=127.0.0.1 in the generated unit.
+  # Patch to 0.0.0.0 so the gateway is reachable on the guest's LAN IP.
+  # The Incus container provides the network isolation boundary.
+  - |
+    QUADLET="/home/openclaw/.config/containers/systemd/openclaw.container"
+    if [ -f "$QUADLET" ]; then
+      sed -i 's|PublishPort=127.0.0.1:|PublishPort=0.0.0.0:|g' "$QUADLET"
+      chown openclaw:openclaw "$QUADLET"
+    fi
+
+  # --- Step 6: Restart service with patched Quadlet ---
   - |
     systemctl --machine openclaw@ --user daemon-reload || true
     systemctl --machine openclaw@ --user restart openclaw.service || true
 
-  # --- Step 6: Post-setup validation ---
+  # --- Step 7: Post-setup validation ---
   - |
     sudo -u openclaw podman exec openclaw openclaw doctor --fix 2>&1 || true
     sudo -u openclaw podman exec openclaw openclaw security audit 2>&1 || true
