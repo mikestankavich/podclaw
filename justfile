@@ -120,7 +120,7 @@ openclaw *ARGS:
     #!/usr/bin/env bash
     set -eo pipefail
     TOKEN=$(incus exec {{target}} -- cat /home/openclaw/.openclaw/.env | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2)
-    incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman exec \
+    incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman exec -it \
       -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
       openclaw openclaw {{ARGS}}
 
