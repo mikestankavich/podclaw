@@ -18,7 +18,14 @@ default:
 
 # Print a one-time pairing URL for the Control UI
 pair:
-    @incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman exec openclaw openclaw dashboard --no-open
+    #!/usr/bin/env bash
+    set -euo pipefail
+    URL=$(incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman exec openclaw openclaw dashboard --no-open 2>&1 | grep -o 'http://[^ ]*')
+    DOMAIN="${PODCLAW_DOMAIN:-}"
+    if [[ -n "$DOMAIN" ]]; then
+      URL=$(echo "$URL" | sed "s#http://127.0.0.1:18789#https://${DOMAIN}#")
+    fi
+    echo "$URL"
 
 # Print the gateway auth token
 token:
