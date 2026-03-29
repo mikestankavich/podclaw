@@ -256,6 +256,19 @@ write_files:
         log "DNS A record created: ${PODCLAW_DOMAIN} -> ${GUEST_IP}"
       fi
 
+      # --- Patch OpenClaw config with HTTPS origin ---
+      OPENCLAW_CONFIG="${OPENCLAW_HOME}/.openclaw/openclaw.json"
+      if [ -f "$OPENCLAW_CONFIG" ] && command -v jq &>/dev/null; then
+        log "Adding https://${PODCLAW_DOMAIN} to allowedOrigins"
+        jq --arg origin "https://${PODCLAW_DOMAIN}" \
+          '.gateway.controlUi.allowedOrigins = (.gateway.controlUi.allowedOrigins // []) + [$origin] | .gateway.controlUi.allowedOrigins |= unique' \
+          "$OPENCLAW_CONFIG" > "${OPENCLAW_CONFIG}.tmp" && mv "${OPENCLAW_CONFIG}.tmp" "$OPENCLAW_CONFIG"
+        chown "${OPENCLAW_USER}:${OPENCLAW_USER}" "$OPENCLAW_CONFIG"
+        # Restart OpenClaw to pick up the new origin
+        systemctl --machine "${OPENCLAW_USER}@" --user restart openclaw.service || true
+        sleep 3
+      fi
+
       # --- Start Traefik ---
       log "Starting Traefik service"
       systemctl --machine "${OPENCLAW_USER}@" --user daemon-reload || true
