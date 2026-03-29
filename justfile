@@ -39,21 +39,48 @@ pair:
 
 # List pending device pairing requests
 devices:
-    #!/usr/bin/env bash
-    set -eo pipefail
-    TOKEN=$(incus exec {{target}} -- cat /home/openclaw/.openclaw/.env | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2)
-    incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman exec -u root \
-      -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" -e HOME=/home/node \
-      openclaw openclaw devices list 2>&1
+    @incus exec {{target}} -- python3 -c "
+    import json
+    try:
+        with open('/home/openclaw/.openclaw/devices/pending.json') as f:
+            pending = json.load(f)
+        if not pending:
+            print('No pending pairing requests.')
+        else:
+            print(f'Pending ({len(pending)}):')
+            for rid, e in pending.items():
+                print(f'  {rid}  {e.get(\"platform\",\"?\")}  {e.get(\"clientId\",\"?\")}')
+    except FileNotFoundError:
+        print('No pending pairing requests.')
+    "
 
-# Approve a device pairing request (run `just devices` to see pending requests)
-approve request_id:
-    #!/usr/bin/env bash
-    set -eo pipefail
-    TOKEN=$(incus exec {{target}} -- cat /home/openclaw/.openclaw/.env | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2)
-    incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman exec -u root \
-      -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" -e HOME=/home/node \
-      openclaw openclaw devices approve "{{request_id}}" 2>&1
+# Approve all pending device pairing requests
+approve:
+    @incus exec {{target}} -- python3 -c "
+    import json, time
+    pending_path = '/home/openclaw/.openclaw/devices/pending.json'
+    paired_path = '/home/openclaw/.openclaw/devices/paired.json'
+    with open(pending_path) as f:
+        pending = json.load(f)
+    if not pending:
+        print('No pending requests to approve.')
+        exit(0)
+    try:
+        with open(paired_path) as f:
+            paired = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        paired = {}
+    for rid, entry in pending.items():
+        did = entry['deviceId']
+        entry['approved'] = True
+        entry['approvedAt'] = int(time.time() * 1000)
+        paired[did] = entry
+        print(f'Approved {entry.get(\"clientId\",\"?\")} on {entry.get(\"platform\",\"?\")} ({rid[:8]}...)')
+    with open(paired_path, 'w') as f:
+        json.dump(paired, f, indent=2)
+    with open(pending_path, 'w') as f:
+        json.dump({}, f)
+    "
 
 # Print the gateway auth token
 token:
