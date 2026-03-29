@@ -20,8 +20,18 @@ default:
 # Print a one-time pairing URL for the Control UI
 pair:
     #!/usr/bin/env bash
-    set -euo pipefail
-    URL=$(incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman exec openclaw openclaw dashboard --no-open 2>&1 | grep -o 'http://[^ ]*')
+    set -eo pipefail
+    OUTPUT=$(incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman exec openclaw openclaw dashboard --no-open 2>&1) || {
+      echo "Error: could not get dashboard URL. Is the container running?" >&2
+      echo "$OUTPUT" >&2
+      exit 1
+    }
+    URL=$(echo "$OUTPUT" | grep -o 'http://[^ ]*' || true)
+    if [[ -z "$URL" ]]; then
+      echo "Error: no URL found in output:" >&2
+      echo "$OUTPUT" >&2
+      exit 1
+    fi
     if [[ -n "{{domain}}" ]]; then
       URL=$(echo "$URL" | sed "s#http://127.0.0.1:18789#https://{{domain}}#")
     fi
