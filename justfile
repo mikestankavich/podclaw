@@ -16,6 +16,10 @@ quiet := env("PODCLAW_QUIET", "")
 default:
     @just --list
 
+# Print a one-time pairing URL for the Control UI
+pair:
+    @incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman exec openclaw openclaw dashboard --no-open
+
 # Print the gateway auth token
 token:
     @incus exec {{target}} -- cat /home/openclaw/.openclaw/.env 2>/dev/null | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2
