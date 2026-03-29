@@ -115,6 +115,15 @@ logs *ARGS:
 service verb="status":
     incus exec {{target}} -- systemctl --machine openclaw@ --user {{verb}} openclaw.service
 
+# Run openclaw CLI commands inside the container (e.g. just openclaw onboard, just openclaw --help)
+openclaw *ARGS:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    TOKEN=$(incus exec {{target}} -- cat /home/openclaw/.openclaw/.env | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2)
+    incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman exec \
+      -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
+      openclaw openclaw {{ARGS}}
+
 # Show rootless Podman containers
 podman *ARGS:
     incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman {{ARGS}}
