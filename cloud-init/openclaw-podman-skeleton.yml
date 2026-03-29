@@ -21,18 +21,16 @@ packages:
   - apparmor-utils
 
 users:
-  # Admin user for troubleshooting
+  # Admin user for troubleshooting. UID 1100 to keep UID 1000 free for
+  # the openclaw user, which must match the container's node user (UID 1000)
+  # for podman --userns keep-id volume mounts to work correctly.
   - name: ${PODCLAW_ADMIN_USER}
+    uid: 1100
     groups: sudo
     shell: /bin/bash
     sudo: ['ALL=(ALL) NOPASSWD:ALL']
     ssh_authorized_keys:
       - ${PODCLAW_SSH_KEY}
-
-  # NOTE: The openclaw user is created in runcmd below (not here).
-  # setup-podman.sh checks for existing users and skips creation if found.
-  # We pre-create the user so we can configure fuse-overlayfs storage
-  # BEFORE setup-podman.sh runs (avoiding the slow storage-chown-by-maps).
 
 write_files:
   - path: /opt/podclaw/scripts/setup-openclaw.sh
@@ -85,9 +83,11 @@ write_files:
       done
 
       # --- Create openclaw user ---
-      log "Creating ${OPENCLAW_USER} user"
+      # UID 1000 matches the container's 'node' user so podman --userns keep-id
+      # volume mounts work correctly (same UID inside and outside the container).
+      log "Creating ${OPENCLAW_USER} user (UID 1000)"
       if ! id "${OPENCLAW_USER}" &>/dev/null; then
-        useradd -m -s /usr/sbin/nologin "${OPENCLAW_USER}"
+        useradd -m -s /usr/sbin/nologin -u 1000 "${OPENCLAW_USER}"
       fi
       loginctl enable-linger "${OPENCLAW_USER}"
       OPENCLAW_UID=$(id -u "${OPENCLAW_USER}")

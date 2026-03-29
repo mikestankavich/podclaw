@@ -21,7 +21,10 @@ default:
 pair:
     #!/usr/bin/env bash
     set -eo pipefail
-    OUTPUT=$(incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman exec -u node openclaw openclaw dashboard --no-open 2>&1) || {
+    TOKEN=$(incus exec {{target}} -- cat /home/openclaw/.openclaw/.env | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2)
+    OUTPUT=$(incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman exec \
+      -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
+      openclaw openclaw dashboard --no-open 2>&1) || {
       echo "Error: could not get dashboard URL. Is the container running?" >&2
       echo "$OUTPUT" >&2
       exit 1
@@ -39,48 +42,40 @@ pair:
 
 # List pending device pairing requests
 devices:
-    @incus exec {{target}} -- python3 -c "
-    import json
-    try:
-        with open('/home/openclaw/.openclaw/devices/pending.json') as f:
-            pending = json.load(f)
-        if not pending:
-            print('No pending pairing requests.')
-        else:
-            print(f'Pending ({len(pending)}):')
-            for rid, e in pending.items():
-                print(f'  {rid}  {e.get(\"platform\",\"?\")}  {e.get(\"clientId\",\"?\")}')
-    except FileNotFoundError:
-        print('No pending pairing requests.')
-    "
+    #!/usr/bin/env bash
+    set -eo pipefail
+    TOKEN=$(incus exec {{target}} -- cat /home/openclaw/.openclaw/.env | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2)
+    incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman exec \
+      -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
+      openclaw openclaw devices list
+
+# Approve a device pairing request (run `just devices` first, or `just approve-all`)
+approve request_id:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    TOKEN=$(incus exec {{target}} -- cat /home/openclaw/.openclaw/.env | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2)
+    incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman exec \
+      -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
+      openclaw openclaw devices approve "{{request_id}}"
 
 # Approve all pending device pairing requests
-approve:
-    @incus exec {{target}} -- python3 -c "
-    import json, time
-    pending_path = '/home/openclaw/.openclaw/devices/pending.json'
-    paired_path = '/home/openclaw/.openclaw/devices/paired.json'
-    with open(pending_path) as f:
-        pending = json.load(f)
-    if not pending:
-        print('No pending requests to approve.')
-        exit(0)
-    try:
-        with open(paired_path) as f:
-            paired = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        paired = {}
-    for rid, entry in pending.items():
-        did = entry['deviceId']
-        entry['approved'] = True
-        entry['approvedAt'] = int(time.time() * 1000)
-        paired[did] = entry
-        print(f'Approved {entry.get(\"clientId\",\"?\")} on {entry.get(\"platform\",\"?\")} ({rid[:8]}...)')
-    with open(paired_path, 'w') as f:
-        json.dump(paired, f, indent=2)
-    with open(pending_path, 'w') as f:
-        json.dump({}, f)
-    "
+approve-all:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    TOKEN=$(incus exec {{target}} -- cat /home/openclaw/.openclaw/.env | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2)
+    PENDING=$(incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman exec \
+      -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
+      openclaw openclaw devices list 2>&1 | grep -oP '^\│ \K[0-9a-f-]{36}' || true)
+    if [[ -z "$PENDING" ]]; then
+      echo "No pending requests."
+      exit 0
+    fi
+    for REQ in $PENDING; do
+      echo "Approving $REQ..."
+      incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman exec \
+        -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
+        openclaw openclaw devices approve "$REQ" 2>&1 || true
+    done
 
 # Print the gateway auth token
 token:
@@ -98,7 +93,7 @@ info:
       echo "LAN:        http://${GUEST_IP}:18789/"
     fi
     echo ""
-    incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman ps 2>/dev/null || true
+    incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman ps 2>/dev/null || true
     echo ""
     incus info {{target}} 2>/dev/null | grep -A1 -E "Resources:" || true
 
@@ -111,9 +106,9 @@ logs *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ "{{ARGS}}" == *"-f"* ]]; then
-      incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman logs -f openclaw
+      incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman logs -f openclaw
     else
-      incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman logs --tail 50 openclaw
+      incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman logs --tail 50 openclaw
     fi
 
 # Manage the openclaw systemd service (status, start, stop, restart)
@@ -122,7 +117,7 @@ service verb="status":
 
 # Show rootless Podman containers
 podman *ARGS:
-    incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman {{ARGS}}
+    incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman {{ARGS}}
 
 # Push and run setup script on an existing container (no cloud-init)
 setup:
@@ -139,9 +134,9 @@ traefik-logs *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ "{{ARGS}}" == *"-f"* ]]; then
-      incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman logs -f traefik
+      incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman logs -f traefik
     else
-      incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman logs --tail 50 traefik
+      incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman logs --tail 50 traefik
     fi
 
 # Launch a new OpenClaw container (verbose by default, PODCLAW_QUIET=1 to suppress log tailing)
