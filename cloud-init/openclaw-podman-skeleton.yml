@@ -120,6 +120,7 @@ write_files:
       {
         "gateway": {
           "mode": "local",
+          "dmPolicy": "open",
           "controlUi": {
             "dangerouslyAllowHostHeaderOriginFallback": true
           }
