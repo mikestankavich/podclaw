@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # setup-openclaw.sh -- Set up OpenClaw on rootless Podman (Ubuntu 24.04)
 #
-# Run as root on a fresh Ubuntu 24.04 system with podman, fuse-overlayfs,
-# and apparmor-utils already installed. This script is called by cloud-init
-# but also works standalone.
+# Run as root on a fresh Ubuntu 24.04 system. Installs its own
+# dependencies if missing. Called by cloud-init or run standalone.
 #
 # Usage: sudo ./setup-openclaw.sh
+#   Or:  curl -fsSL https://raw.githubusercontent.com/mikestankavich/podclaw/main/scripts/setup-openclaw.sh | sudo bash
 set -euo pipefail
 
 OPENCLAW_IMAGE="${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:main-slim}"
@@ -13,6 +13,20 @@ OPENCLAW_USER="openclaw"
 OPENCLAW_HOME="/home/${OPENCLAW_USER}"
 
 log() { echo "==> $*"; }
+
+# --- Install dependencies if missing ---
+DEPS="podman fuse-overlayfs apparmor-utils systemd-container git curl jq"
+MISSING=""
+for pkg in $DEPS; do
+  if ! dpkg -s "$pkg" &>/dev/null; then
+    MISSING="$MISSING $pkg"
+  fi
+done
+if [ -n "$MISSING" ]; then
+  log "Installing dependencies:$MISSING"
+  apt-get update -qq
+  apt-get install -y -qq $MISSING
+fi
 
 # --- AppArmor userns profiles ---
 # Ubuntu 24.04 blocks unprivileged user namespaces. Grant userns to

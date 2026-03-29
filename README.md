@@ -115,13 +115,7 @@ That's it. No cleanup, no leftover state on the host.
 
 ## Standalone (no Incus)
 
-The setup script works on any Ubuntu 24.04 system -- you don't need Incus or cloud-init. This is useful for bare-metal machines, VMs, or WSL instances where you just want OpenClaw running in rootless Podman.
-
-### Prerequisites
-
-```bash
-apt-get install -y podman fuse-overlayfs apparmor-utils git curl
-```
+The setup script works on any Ubuntu 24.04 system -- you don't need Incus or cloud-init. This is useful for bare-metal machines, VMs, or WSL instances where you just want OpenClaw running in rootless Podman. The script installs its own apt dependencies if missing.
 
 ### One-liner
 
