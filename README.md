@@ -133,6 +133,46 @@ sudo ./scripts/setup-openclaw.sh
 
 The gateway will listen on `localhost:18789`. There is no LAN binding by default -- use a reverse proxy or an Incus bridged profile if you need external access.
 
+## TLS with Traefik
+
+Podclaw can optionally deploy Traefik as a reverse proxy with automatic Let's Encrypt certificates via Cloudflare DNS-01 challenge. This gives you HTTPS on your LAN without exposing ports 80/443 to the internet.
+
+### Prerequisites
+
+- A domain managed by Cloudflare (e.g. `claw.4nl.co`)
+- A Cloudflare API token with "Zone > DNS > Edit" permission for that domain
+
+### Configuration
+
+Add these to your `.env.local`:
+
+```
+PODCLAW_DOMAIN=claw.yourdomain.com
+PODCLAW_CF_API_TOKEN=your-cloudflare-api-token
+PODCLAW_ACME_EMAIL=you@example.com
+```
+
+Then launch as usual:
+
+```bash
+just launch
+```
+
+The setup script will:
+1. Install Traefik as a rootless Podman container via Quadlet
+2. Configure Let's Encrypt with Cloudflare DNS-01 challenge
+3. Create a DNS A record pointing your domain to the container's LAN IP
+4. Start Traefik with automatic HTTP-to-HTTPS redirect
+
+### Managing Traefik
+
+```bash
+just traefik status    # service status
+just traefik restart   # restart service
+just traefik-logs      # last 50 log lines
+just traefik-logs -f   # follow logs
+```
+
 ## Who this is for
 
 - **Homelab / Incus users** who want a clean, containerized OpenClaw setup

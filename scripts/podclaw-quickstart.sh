@@ -90,7 +90,13 @@ echo ""
 
 incus launch images:ubuntu/24.04/cloud "${TARGET}" \
   -p default -p "${PROFILE_BRIDGED}" -p "${PROFILE_NESTING}" \
-  --config=cloud-init.user-data="$(sed -e "s#\${PODCLAW_ADMIN_USER}#${PODCLAW_ADMIN_USER}#g" -e "s#\${PODCLAW_SSH_KEY}#${PODCLAW_SSH_KEY}#g" "${CLOUD_INIT}")"
+  --config=cloud-init.user-data="$(sed \
+  -e "s#\${PODCLAW_ADMIN_USER}#${PODCLAW_ADMIN_USER}#g" \
+  -e "s#\${PODCLAW_SSH_KEY}#${PODCLAW_SSH_KEY}#g" \
+  -e "s#\${PODCLAW_DOMAIN}#${PODCLAW_DOMAIN:-}#g" \
+  -e "s#\${PODCLAW_CF_API_TOKEN}#${PODCLAW_CF_API_TOKEN:-}#g" \
+  -e "s#\${PODCLAW_ACME_EMAIL}#${PODCLAW_ACME_EMAIL:-}#g" \
+  "${CLOUD_INIT}")"
 
 echo ""
 

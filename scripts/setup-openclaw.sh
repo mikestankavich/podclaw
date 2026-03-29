@@ -45,9 +45,11 @@ APPARMOR
 done
 
 # --- Create openclaw user ---
-log "Creating ${OPENCLAW_USER} user"
+# UID 1000 matches the container's 'node' user so podman --userns keep-id
+# volume mounts work correctly (same UID inside and outside the container).
+log "Creating ${OPENCLAW_USER} user (UID 1000)"
 if ! id "${OPENCLAW_USER}" &>/dev/null; then
-  useradd -m -s /usr/sbin/nologin "${OPENCLAW_USER}"
+  useradd -m -s /usr/sbin/nologin -u 1000 "${OPENCLAW_USER}"
 fi
 loginctl enable-linger "${OPENCLAW_USER}"
 OPENCLAW_UID=$(id -u "${OPENCLAW_USER}")
@@ -80,6 +82,7 @@ cat > "${OPENCLAW_HOME}/.openclaw/openclaw.json" <<CONFIG
 {
   "gateway": {
     "mode": "local",
+    "trustedProxies": ["127.0.0.1", "::1"],
     "controlUi": {
       "dangerouslyAllowHostHeaderOriginFallback": true
     }
