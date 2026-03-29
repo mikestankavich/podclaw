@@ -65,7 +65,7 @@ approve-all:
     TOKEN=$(incus exec {{target}} -- cat /home/openclaw/.openclaw/.env | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2)
     PENDING=$(incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman exec \
       -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
-      openclaw openclaw devices list 2>&1 | grep -oP '^\│ \K[0-9a-f-]{36}' || true)
+      openclaw openclaw devices list 2>&1 | grep -o '[0-9a-f]\{8\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{12\}' || true)
     if [[ -z "$PENDING" ]]; then
       echo "No pending requests."
       exit 0
