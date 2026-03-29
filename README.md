@@ -113,6 +113,26 @@ incus delete --force my-openclaw
 
 That's it. No cleanup, no leftover state on the host.
 
+## Standalone (no Incus)
+
+The setup script works on any Ubuntu 24.04 system -- you don't need Incus or cloud-init. This is useful for bare-metal machines, VMs, or WSL instances where you just want OpenClaw running in rootless Podman. The script installs its own apt dependencies if missing.
+
+### One-liner
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mikestankavich/podclaw/main/scripts/setup-openclaw.sh | sudo bash
+```
+
+### Or clone and run
+
+```bash
+git clone https://github.com/mikestankavich/podclaw.git
+cd podclaw
+sudo ./scripts/setup-openclaw.sh
+```
+
+The gateway will listen on `localhost:18789`. There is no LAN binding by default -- use a reverse proxy or an Incus bridged profile if you need external access.
+
 ## Who this is for
 
 - **Homelab / Incus users** who want a clean, containerized OpenClaw setup

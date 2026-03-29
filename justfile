@@ -49,6 +49,12 @@ service verb="status":
 podman *ARGS:
     incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman {{ARGS}}
 
+# Push and run setup script on an existing container (no cloud-init)
+setup:
+    incus file push scripts/setup-openclaw.sh {{target}}/root/setup-openclaw.sh
+    incus exec {{target}} -- chmod +x /root/setup-openclaw.sh
+    incus exec {{target}} -- /root/setup-openclaw.sh
+
 # Launch a new OpenClaw container (verbose by default, PODCLAW_QUIET=1 to suppress log tailing)
 launch:
     #!/usr/bin/env bash
