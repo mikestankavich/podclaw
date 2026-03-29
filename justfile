@@ -55,6 +55,20 @@ setup:
     incus exec {{target}} -- chmod +x /root/setup-openclaw.sh
     incus exec {{target}} -- /root/setup-openclaw.sh
 
+# Traefik reverse proxy status
+traefik verb="status":
+    incus exec {{target}} -- systemctl --machine openclaw@ --user {{verb}} traefik.service
+
+# Show Traefik logs (-f to follow)
+traefik-logs *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ "{{ARGS}}" == *"-f"* ]]; then
+      incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman logs -f traefik
+    else
+      incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman logs --tail 50 traefik
+    fi
+
 # Launch a new OpenClaw container (verbose by default, PODCLAW_QUIET=1 to suppress log tailing)
 launch:
     #!/usr/bin/env bash
