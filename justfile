@@ -21,7 +21,7 @@ default:
 pair:
     #!/usr/bin/env bash
     set -eo pipefail
-    OUTPUT=$(incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman exec -e HOME=/home/node -e TMPDIR=/tmp openclaw openclaw dashboard --no-open 2>&1) || {
+    OUTPUT=$(incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman exec -u node openclaw openclaw dashboard --no-open 2>&1) || {
       echo "Error: could not get dashboard URL. Is the container running?" >&2
       echo "$OUTPUT" >&2
       exit 1
