@@ -11,6 +11,7 @@ remote := env("PODCLAW_REMOTE", "")
 target := if remote != "" { remote + ":" + name } else { name }
 admin_user := env("PODCLAW_ADMIN_USER", "")
 quiet := env("PODCLAW_QUIET", "")
+domain := env("PODCLAW_DOMAIN", "")
 
 # List available commands
 default:
@@ -21,9 +22,8 @@ pair:
     #!/usr/bin/env bash
     set -euo pipefail
     URL=$(incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman exec openclaw openclaw dashboard --no-open 2>&1 | grep -o 'http://[^ ]*')
-    DOMAIN="${PODCLAW_DOMAIN:-}"
-    if [[ -n "$DOMAIN" ]]; then
-      URL=$(echo "$URL" | sed "s#http://127.0.0.1:18789#https://${DOMAIN}#")
+    if [[ -n "{{domain}}" ]]; then
+      URL=$(echo "$URL" | sed "s#http://127.0.0.1:18789#https://{{domain}}#")
     fi
     echo "$URL"
 
