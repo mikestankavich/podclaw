@@ -1,0 +1,21 @@
+# traefik/traefik.container -- Traefik Quadlet for rootless Podman
+[Unit]
+Description=Traefik reverse proxy with Let's Encrypt
+After=openclaw.service
+
+[Container]
+Image=docker.io/traefik:v3.3
+ContainerName=traefik
+Network=host
+Volume=traefik-certs:/letsencrypt:Z
+Volume=%h/.config/traefik/traefik.yml:/etc/traefik/traefik.yml:ro,Z
+Volume=%h/.config/traefik/dynamic:/etc/traefik/dynamic:ro,Z
+Environment=CF_DNS_API_TOKEN=${PODCLAW_CF_API_TOKEN}
+Pull=newer
+
+[Service]
+TimeoutStartSec=120
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
