@@ -90,7 +90,7 @@ echo ""
 
 incus launch images:ubuntu/24.04/cloud "${TARGET}" \
   -p default -p "${PROFILE_BRIDGED}" -p "${PROFILE_NESTING}" \
-  --config=cloud-init.user-data="$(sed -e "s|\${PODCLAW_ADMIN_USER}|${PODCLAW_ADMIN_USER}|g" -e "s|\${PODCLAW_SSH_KEY}|${PODCLAW_SSH_KEY}|g" "${CLOUD_INIT}")"
+  --config=cloud-init.user-data="$(sed -e "s#\${PODCLAW_ADMIN_USER}#${PODCLAW_ADMIN_USER}#g" -e "s#\${PODCLAW_SSH_KEY}#${PODCLAW_SSH_KEY}#g" "${CLOUD_INIT}")"
 
 echo ""
 
@@ -143,6 +143,7 @@ done
 
 echo ""
 
+EXIT_CODE=0
 if "${GATEWAY_UP}"; then
   echo "==> OpenClaw gateway is running!"
 else
@@ -151,6 +152,7 @@ else
   echo "    incus exec ${EXEC_TARGET} -- sudo -u openclaw podman ps" >&2
   echo "    incus exec ${EXEC_TARGET} -- sudo -u openclaw systemctl --user status openclaw.service" >&2
   echo ""
+  EXIT_CODE=1
 fi
 
 # --- Step 4: Print access info ---
@@ -176,3 +178,5 @@ echo "    3. Start chatting with an agent"
 echo ""
 echo "  Tear down:  incus delete --force ${TARGET}"
 echo "============================================================"
+
+exit "${EXIT_CODE}"
