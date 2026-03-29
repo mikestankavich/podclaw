@@ -255,6 +255,93 @@ write_files:
       log "Traefik setup complete"
       log "OpenClaw available at: https://${PODCLAW_DOMAIN}/"
 
+  - path: /opt/podclaw/traefik/traefik.yml
+    content: |
+      # traefik/traefik.yml -- Traefik v3 static configuration
+      api:
+        dashboard: false
+
+      entryPoints:
+        web:
+          address: ":80"
+          http:
+            redirections:
+              entryPoint:
+                to: websecure
+                scheme: https
+        websecure:
+          address: ":443"
+
+      certificatesResolvers:
+        letsencrypt:
+          acme:
+            email: "${PODCLAW_ACME_EMAIL}"
+            storage: /letsencrypt/acme.json
+            dnsChallenge:
+              provider: cloudflare
+              resolvers:
+                - "1.1.1.1:53"
+                - "1.0.0.1:53"
+
+      providers:
+        file:
+          directory: /etc/traefik/dynamic
+          watch: true
+
+      log:
+        level: INFO
+
+  - path: /opt/podclaw/traefik/dynamic/openclaw.yml
+    content: |
+      # traefik/dynamic/openclaw.yml -- Route to OpenClaw gateway
+      http:
+        routers:
+          openclaw:
+            rule: "Host(`${PODCLAW_DOMAIN}`)"
+            entryPoints:
+              - websecure
+            tls:
+              certResolver: letsencrypt
+            service: openclaw
+
+          openclaw-ws:
+            rule: "Host(`${PODCLAW_DOMAIN}`) && PathPrefix(`/ws`)"
+            entryPoints:
+              - websecure
+            tls:
+              certResolver: letsencrypt
+            service: openclaw
+
+        services:
+          openclaw:
+            loadBalancer:
+              servers:
+                - url: "http://127.0.0.1:18789"
+
+  - path: /opt/podclaw/traefik/traefik.container
+    content: |
+      # traefik/traefik.container -- Traefik Quadlet for rootless Podman
+      [Unit]
+      Description=Traefik reverse proxy with Let's Encrypt
+      After=openclaw.service
+
+      [Container]
+      Image=docker.io/traefik:v3.3
+      ContainerName=traefik
+      Network=host
+      Volume=traefik-certs:/letsencrypt:Z
+      Volume=%h/.config/traefik/traefik.yml:/etc/traefik/traefik.yml:ro,Z
+      Volume=%h/.config/traefik/dynamic:/etc/traefik/dynamic:ro,Z
+      Environment=CF_DNS_API_TOKEN=${PODCLAW_CF_API_TOKEN}
+      Pull=newer
+
+      [Service]
+      TimeoutStartSec=120
+      Restart=on-failure
+
+      [Install]
+      WantedBy=default.target
+
 runcmd:
   - /opt/podclaw/scripts/setup-openclaw.sh
   # Optional: set up Traefik TLS reverse proxy if domain is configured
