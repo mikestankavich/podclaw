@@ -37,6 +37,24 @@ pair:
     fi
     echo "$URL"
 
+# List pending device pairing requests
+devices:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    TOKEN=$(incus exec {{target}} -- cat /home/openclaw/.openclaw/.env | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2)
+    incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman exec -u root \
+      -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" -e HOME=/home/node \
+      openclaw openclaw devices list 2>&1
+
+# Approve a device pairing request (run `just devices` to see pending requests)
+approve request_id:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    TOKEN=$(incus exec {{target}} -- cat /home/openclaw/.openclaw/.env | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2)
+    incus exec {{target}} --cwd /home/openclaw -- sudo -u openclaw podman exec -u root \
+      -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" -e HOME=/home/node \
+      openclaw openclaw devices approve "{{request_id}}" 2>&1
+
 # Print the gateway auth token
 token:
     @incus exec {{target}} -- cat /home/openclaw/.openclaw/.env 2>/dev/null | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2
