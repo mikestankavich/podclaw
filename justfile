@@ -1,6 +1,7 @@
 # Podclaw — OpenClaw on rootless Podman in Incus
 #
 # Configuration is loaded from .env.local (see .env.local.example).
+# Run `just` or `just --list` to see available commands.
 
 set dotenv-load := true
 set dotenv-filename := ".env.local"
@@ -10,6 +11,10 @@ remote := env("PODCLAW_REMOTE", "")
 target := if remote != "" { remote + ":" + name } else { name }
 admin_user := env("PODCLAW_ADMIN_USER", "")
 quiet := env("PODCLAW_QUIET", "")
+
+# List available commands
+default:
+    @just --list
 
 # Show container info and resource usage
 info:
@@ -78,6 +83,15 @@ launch:
     fi
     ./scripts/podclaw-quickstart.sh
 
-# Delete the container
+# Delete the container (requires confirmation)
 destroy:
-    incus delete --force {{target}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "This will permanently delete: {{target}}"
+    read -rp "Are you sure? [y/N] " confirm
+    if [[ "${confirm}" =~ ^[Yy]$ ]]; then
+      incus delete --force {{target}}
+      echo "Deleted."
+    else
+      echo "Cancelled."
+    fi
