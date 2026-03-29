@@ -80,7 +80,7 @@ cat > "${OPENCLAW_HOME}/.openclaw/openclaw.json" <<CONFIG
 {
   "gateway": {
     "mode": "local",
-    "dmPolicy": "open",
+    "trustedProxies": ["127.0.0.1", "::1"],
     "controlUi": {
       "dangerouslyAllowHostHeaderOriginFallback": true
     }
