@@ -21,6 +21,14 @@ for var in PODCLAW_DOMAIN PODCLAW_CF_API_TOKEN PODCLAW_ACME_EMAIL; do
   fi
 done
 
+# --- Allow unprivileged ports 80/443 ---
+# Rootless Podman can't bind to privileged ports by default.
+log "Enabling unprivileged port binding"
+sysctl -w net.ipv4.ip_unprivileged_port_start=0 > /dev/null
+if ! grep -q "ip_unprivileged_port_start" /etc/sysctl.d/99-podclaw.conf 2>/dev/null; then
+  echo "net.ipv4.ip_unprivileged_port_start=0" > /etc/sysctl.d/99-podclaw.conf
+fi
+
 # --- Install Traefik config ---
 log "Installing Traefik config to ${TRAEFIK_CONFIG}"
 mkdir -p "${TRAEFIK_CONFIG}/dynamic"
