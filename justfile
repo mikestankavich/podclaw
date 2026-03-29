@@ -16,6 +16,10 @@ quiet := env("PODCLAW_QUIET", "")
 default:
     @just --list
 
+# Print the gateway auth token
+token:
+    @incus exec {{target}} -- cat /home/openclaw/.openclaw/.env 2>/dev/null | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2
+
 # Show container info and resource usage
 info:
     #!/usr/bin/env bash
