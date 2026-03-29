@@ -139,6 +139,21 @@ traefik-logs *ARGS:
       incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman logs --tail 50 traefik
     fi
 
+# Pull latest OpenClaw image and restart the service (in-place upgrade)
+upgrade:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Pulling latest image..."
+    incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman pull ghcr.io/openclaw/openclaw:main-slim
+    echo "Restarting OpenClaw service..."
+    incus exec {{target}} -- systemctl --machine openclaw@ --user restart openclaw.service
+    sleep 10
+    echo "Verifying..."
+    incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman exec \
+      openclaw node -e "console.log(require('./package.json').version)" 2>/dev/null || \
+      echo "(version check unavailable)"
+    echo "Upgrade complete."
+
 # Launch a new OpenClaw container (verbose by default, PODCLAW_QUIET=1 to suppress log tailing)
 launch:
     #!/usr/bin/env bash
