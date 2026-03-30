@@ -13,6 +13,9 @@ admin_user := env("PODCLAW_ADMIN_USER", "")
 quiet := env("PODCLAW_QUIET", "")
 domain := env("PODCLAW_DOMAIN", "")
 
+# Helper: run a command as the openclaw user inside the Incus guest
+_oc := "incus exec " + target + " --cwd /tmp -- sudo -u openclaw"
+
 # List available commands
 default:
     @just --list
@@ -22,8 +25,7 @@ pair:
     #!/usr/bin/env bash
     set -eo pipefail
     TOKEN=$(incus exec {{target}} -- cat /home/openclaw/.openclaw/.env | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2)
-    OUTPUT=$(incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman exec \
-      -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
+    OUTPUT=$({{_oc}} podman exec -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
       openclaw openclaw dashboard --no-open 2>&1) || {
       echo "Error: could not get dashboard URL. Is the container running?" >&2
       echo "$OUTPUT" >&2
@@ -45,26 +47,31 @@ devices:
     #!/usr/bin/env bash
     set -eo pipefail
     TOKEN=$(incus exec {{target}} -- cat /home/openclaw/.openclaw/.env | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2)
-    incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman exec \
-      -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
+    {{_oc}} podman exec -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
       openclaw openclaw devices list
 
-# Approve a device pairing request (run `just devices` first, or `just approve-all`)
+# Approve a device pairing request
 approve request_id:
     #!/usr/bin/env bash
     set -eo pipefail
     TOKEN=$(incus exec {{target}} -- cat /home/openclaw/.openclaw/.env | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2)
-    incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman exec \
-      -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
+    {{_oc}} podman exec -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
       openclaw openclaw devices approve "{{request_id}}"
+
+# Approve the most recent pending device pairing request
+approve-latest:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    TOKEN=$(incus exec {{target}} -- cat /home/openclaw/.openclaw/.env | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2)
+    {{_oc}} podman exec -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
+      openclaw openclaw devices approve --latest
 
 # Approve all pending device pairing requests
 approve-all:
     #!/usr/bin/env bash
     set -eo pipefail
     TOKEN=$(incus exec {{target}} -- cat /home/openclaw/.openclaw/.env | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2)
-    PENDING=$(incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman exec \
-      -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
+    PENDING=$({{_oc}} podman exec -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
       openclaw openclaw devices list 2>&1 | grep -o '[0-9a-f]\{8\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{4\}-[0-9a-f]\{12\}' || true)
     if [[ -z "$PENDING" ]]; then
       echo "No pending requests."
@@ -72,8 +79,7 @@ approve-all:
     fi
     for REQ in $PENDING; do
       echo "Approving $REQ..."
-      incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman exec \
-        -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
+      {{_oc}} podman exec -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
         openclaw openclaw devices approve "$REQ" 2>&1 || true
     done
 
@@ -93,7 +99,7 @@ info:
       echo "LAN:        http://${GUEST_IP}:18789/"
     fi
     echo ""
-    incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman ps 2>/dev/null || true
+    {{_oc}} podman ps 2>/dev/null || true
     echo ""
     incus info {{target}} 2>/dev/null | grep -A1 -E "Resources:" || true
 
@@ -106,27 +112,27 @@ logs *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ "{{ARGS}}" == *"-f"* ]]; then
-      incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman logs -f openclaw
+      {{_oc}} podman logs -f openclaw
     else
-      incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman logs --tail 50 openclaw
+      {{_oc}} podman logs --tail 50 openclaw
     fi
 
 # Manage the openclaw systemd service (status, start, stop, restart)
 service verb="status":
     incus exec {{target}} -- systemctl --machine openclaw@ --user {{verb}} openclaw.service
 
-# Run openclaw CLI commands inside the container (e.g. just openclaw onboard, just openclaw --help)
+# Run openclaw CLI commands (e.g. just openclaw onboard, just openclaw --help)
 openclaw *ARGS:
     #!/usr/bin/env bash
     set -eo pipefail
     TOKEN=$(incus exec {{target}} -- cat /home/openclaw/.openclaw/.env | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2)
-    incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman exec -it \
+    incus exec {{target}} --cwd /tmp -t -- sudo -u openclaw podman exec -it \
       -e OPENCLAW_GATEWAY_TOKEN="$TOKEN" \
       openclaw openclaw {{ARGS}}
 
 # Show rootless Podman containers
 podman *ARGS:
-    incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman {{ARGS}}
+    {{_oc}} podman {{ARGS}}
 
 # Push and run setup script on an existing container (no cloud-init)
 setup:
@@ -143,9 +149,9 @@ traefik-logs *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ "{{ARGS}}" == *"-f"* ]]; then
-      incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman logs -f traefik
+      {{_oc}} podman logs -f traefik
     else
-      incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman logs --tail 50 traefik
+      {{_oc}} podman logs --tail 50 traefik
     fi
 
 # Pull latest OpenClaw image and restart the service (in-place upgrade)
@@ -153,14 +159,12 @@ upgrade:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "Pulling latest image..."
-    incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman pull ghcr.io/openclaw/openclaw:main-slim
+    {{_oc}} podman pull ghcr.io/openclaw/openclaw:main-slim
     echo "Restarting OpenClaw service..."
     incus exec {{target}} -- systemctl --machine openclaw@ --user restart openclaw.service
     sleep 10
     echo "Verifying..."
-    incus exec {{target}} --cwd /tmp -- sudo -u openclaw podman exec \
-      openclaw node -e "console.log(require('./package.json').version)" 2>/dev/null || \
-      echo "(version check unavailable)"
+    {{_oc}} podman exec openclaw openclaw gateway status 2>/dev/null || echo "(status check unavailable)"
     echo "Upgrade complete."
 
 # Launch a new OpenClaw container (verbose by default, PODCLAW_QUIET=1 to suppress log tailing)
