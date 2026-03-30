@@ -179,6 +179,19 @@ just traefik-logs -f   # follow logs
 - **Infra engineers** exploring rootless Podman inside system containers
 - **AI agent experimenters** who want isolated OpenClaw instances they can spin up and tear down
 
+### Relation to official OpenClaw Podman docs
+
+OpenClaw has [official Podman install docs](https://docs.openclaw.ai/install/podman) that cover rootless Podman setup on a single host. Podclaw builds on that foundation and adds:
+
+- **Incus cloud-init automation** -- zero-touch deploy inside an isolated system container
+- **AppArmor userns profiles** -- required on Ubuntu 24.04 but not covered in official docs
+- **fuse-overlayfs workaround** -- avoids 10+ minute storage-chown-by-maps penalty
+- **Traefik TLS** -- automatic HTTPS via Let's Encrypt + Cloudflare DNS-01
+- **UID alignment** -- openclaw user at UID 1000 to match the container's `node` user
+- **justfile** -- management commands for the Incus-wrapped deployment
+
+If you're running Podman directly on a host (no Incus), the official docs are simpler. Podclaw is for when you want Incus isolation on top.
+
 ### Non-goals
 
 - This is not a one-click VPS deployment. For that, see the [official OpenClaw install docs](https://docs.openclaw.ai/install/).
